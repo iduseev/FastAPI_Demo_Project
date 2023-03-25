@@ -81,7 +81,7 @@ def add_book(
     request: Request,
     token: Annotated[str, Depends(oauth2_scheme)],
     incoming_book: IncomingBookData = Body(..., title="Required book data to be added", example=default_book)
-    ) -> Message:
+    ) -> Union[NoReturn, Message]:
     client_host = request.client.host
     print(f"Detected incoming GET request from the client with IP {client_host} ...")
 
@@ -94,12 +94,9 @@ def add_book(
     description = incoming_book_data.get("description")
 
     if book_name in [book.book_name for book in default_book_shelf.values()]:
-        return JSONResponse(
+        raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            content=Error(
-                message=f"The aforementioned book already exists in the book shelf!",
-                status_code=status.HTTP_409_CONFLICT
-            ).dict()
+            detail=f"The aforementioned book already exists in the book shelf!"
         )
     book_id = uuid4().hex
     print(f"Assigned new book ID to the added book: {book_id}")
@@ -135,16 +132,14 @@ def delete_book(
         client_host = request.client.host
         print(f"Detected incoming GET request from the client with IP {client_host} ...")
 
-        # todo add authorization via JWT token
-
-        if book_name not in [book.book_name for book in default_book_shelf.values()]:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"The book with ID {book_id} was not found in the book shelf!"
-            )
+        # todo add authorization via JWT token            
 
         for book_id, book in default_book_shelf.items():
             if book_name == book.book_name:
                 print(f"Book {book_name} with assigned book ID {book_id} is found on the book shelf and is to be deleted ...")
                 del default_book_shelf[book_id]
                 return Message(message=f"Book {book_name} was successfully deleted from the book shelf!")
+        raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"The book with ID {book_id} was not found in the book shelf!"
+            )

@@ -2,6 +2,7 @@
 
 from typing import Optional, Dict, List, Any
 from pydantic import BaseModel, Field
+from uuid import uuid4
 
 
 class BookShelf(BaseModel):
@@ -16,7 +17,7 @@ class IncomingBookData(BaseModel):
 
 
 class Book(IncomingBookData):
-    book_id: str = Field(..., example="cf23df22")
+    book_id: str = Field(..., example=uuid4().hex)
     available: bool = Field(..., example=False)
 
 
