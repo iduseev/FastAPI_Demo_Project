@@ -2,20 +2,24 @@
 
 import pathlib
 from uuid import uuid4
-from typing import Union, List, Optional, Dict
+from typing import Union, List, Optional, Dict, Annotated, NoReturn
 
-from fastapi import FastAPI, Path, Body, Query, HTTPException, status, Request
+from fastapi import FastAPI, Path, Body, Query, HTTPException, status, Request, Depends
+from fastapi.security import OAuth2PasswordBearer
 from fastapi.responses import JSONResponse
 
 from .mock_data import default_book_shelf, default_book
 from .models import IncomingBookData, Book, Visitor, Message, Error
 
 app = FastAPI()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 @app.get("/")
 async def read_root() -> Dict:
-    return {"message": "Hello, welcome to the Demo Library API service built using amazing FastAPI framework!"}
+    return {
+        "message": "Hello, welcome to the Demo Library API service built using amazing FastAPI framework!",
+    }
 
 
 @app.get(
@@ -24,10 +28,11 @@ async def read_root() -> Dict:
     response_model=Book,
     responses={
         status.HTTP_404_NOT_FOUND: {"model": Error}
-    }
+    },
 )
 def read_book(
     request: Request, 
+    token: Annotated[str, Depends(oauth2_scheme)],
     book_id: str = Path(..., title="Required book ID", example="cf23df22")
     ) -> Book:
     """_summary_
@@ -74,8 +79,9 @@ def show_books(limit: int = Query(default=10, example=10)) -> List[Book]:
 )
 def add_book(
     request: Request,
+    token: Annotated[str, Depends(oauth2_scheme)],
     incoming_book: IncomingBookData = Body(..., title="Required book data to be added", example=default_book)
-    ) -> str:
+    ) -> Message:
     client_host = request.client.host
     print(f"Detected incoming GET request from the client with IP {client_host} ...")
 
@@ -107,9 +113,38 @@ def add_book(
     print(f"Created new book object! Book data:\n{new_book.dict()}")
     default_book_shelf[book_id] = new_book
     print(f"Assigned new book {book_name} to the book shelf! ")
-    return JSONResponse(
-        status_code=status.HTTP_201_CREATED,
-        content=Message(
-            message=f"Book {book_name} was successfully added to the book shelf! Book ID assigned: {book_id}"
-        ).dict()
+    return Message(
+        message=f"Book {book_name} was successfully added to the book shelf! Book ID assigned: {book_id}"
     )
+
+
+@app.delete(
+    "/books/delete/{book_name}",
+    status_code=status.HTTP_200_OK,
+    response_model=Message,
+    responses={
+        status.HTTP_404_NOT_FOUND: {"model": Error},
+        status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": Error}
+    }
+)
+def delete_book(
+    request: Request, 
+    token: Annotated[str, Depends(oauth2_scheme)],
+    book_name: str = Path(..., title="Required book name to be deleted", example="Shantaram")
+) -> Union[NoReturn, Message]:
+        client_host = request.client.host
+        print(f"Detected incoming GET request from the client with IP {client_host} ...")
+
+        # todo add authorization via JWT token
+
+        if book_name not in [book.book_name for book in default_book_shelf.values()]:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"The book with ID {book_id} was not found in the book shelf!"
+            )
+
+        for book_id, book in default_book_shelf.items():
+            if book_name == book.book_name:
+                print(f"Book {book_name} with assigned book ID {book_id} is found on the book shelf and is to be deleted ...")
+                del default_book_shelf[book_id]
+                return Message(message=f"Book {book_name} was successfully deleted from the book shelf!")
