@@ -1,18 +1,18 @@
 # backend/endpoints.py
 
-import pathlib
 from uuid import uuid4
 from typing import Union, List, Optional, Dict, Annotated, NoReturn
 
 from fastapi import FastAPI, Path, Body, Query, HTTPException, status, Request, Depends
-from fastapi.security import OAuth2PasswordBearer
+# from fastapi.security import OAuth2PasswordBearer
 from fastapi.responses import JSONResponse
 
 from .mock_data import default_book_shelf, default_book
-from .models import IncomingBookData, Book, Visitor, Message, Error
+from .models import IncomingBookData, Book, Message, Error, User
+from .authentication import oauth2_scheme, get_current_user
+
 
 app = FastAPI()
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 @app.get("/")
@@ -20,6 +20,11 @@ async def read_root() -> Dict:
     return {
         "message": "Hello, welcome to the Demo Library API service built using amazing FastAPI framework!",
     }
+
+
+@app.get("/users/me")
+async def read_users_me(current_user: Annotated[User, Depends(get_current_user)]):
+    return current_user
 
 
 @app.get(

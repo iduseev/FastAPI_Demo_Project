@@ -1,7 +1,7 @@
 # backend/models.py
 
-from typing import Optional, Dict, List, Any
-from pydantic import BaseModel, Field
+from typing import Optional, Dict, List, Any, Union
+from pydantic import BaseModel, Field, EmailStr
 from uuid import uuid4
 
 
@@ -21,11 +21,11 @@ class Book(IncomingBookData):
     available: bool = Field(..., example=False)
 
 
-class Visitor(BaseModel):
-    visitor_name: str = Field(..., example="John")
-    visitor_surname: str = Field(..., example="Doe")
-    visitor_id: str = Field(..., example="dg43dp87")
-    visitor_age: Optional[int] = Field(None, example=30)
+class User(BaseModel):
+    username: Union[str, None] = Field(default=None, example="alumni")
+    full_name: Union[str, None] = Field(default=None, example="John Doe")
+    email: Union[EmailStr, None] = Field(..., example="johndoe@example.com")
+    disabled: Union[bool, None] = Field(default=False)
 
 
 class Message(BaseModel):

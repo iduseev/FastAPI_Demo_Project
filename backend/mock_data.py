@@ -1,6 +1,6 @@
 # backend/mock_data.py
 
-from .models import Visitor, Book
+from .models import Book, User
 
 default_book = {
     "book_name": "Shantaram",
@@ -18,11 +18,11 @@ default_book_shelf = {
     )
 }
 
-default_visiotrs = {
-    "dg43dp87": Visitor(
-    visitor_name="John",
-    visitor_surname="Doe",
-    visitor_id="dg43dp87",
-    age="30"
+default_users = {
+    "dg43dp87": User(
+    username="alumni",
+    full_name="John Doe",
+    email="johndoe@example.com",
+    disabled=False
     )
 }
