@@ -4,12 +4,13 @@ from uuid import uuid4
 from typing import Union, List, Optional, Dict, Annotated, NoReturn
 
 from fastapi import FastAPI, Path, Body, Query, HTTPException, status, Request, Depends
-# from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
 
-from .mock_data import default_book_shelf, default_book
-from .models import IncomingBookData, Book, Message, Error, User
-from .authentication import oauth2_scheme, get_current_user
+from .mock_data import default_book_shelf, default_book, default_users_db
+from .models import IncomingBookData, Book, Message, Error, User, UserInDB
+from .authentication import oauth2_scheme, get_current_active_user
+from .security import hash_password
 
 
 app = FastAPI()
@@ -22,8 +23,27 @@ async def read_root() -> Dict:
     }
 
 
+@app.post("/token")
+async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Dict:
+    user_dict = default_users_db.get(form_data.username)
+    if not user_dict:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Incorrect username or password"
+        )
+    user = UserInDB(**user_dict)
+    # check password validity
+    hashed_password = hash_password(password=form_data.password)
+    if not hashed_password == user.hashed_password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Incorrect username or password"
+        )
+    return {"access_token": user.username, "token_type": "bearer"}
+
+
 @app.get("/users/me")
-async def read_users_me(current_user: Annotated[User, Depends(get_current_user)]):
+async def read_users_me(current_user: Annotated[User, Depends(get_current_active_user)]) -> User:
     return current_user
 
 

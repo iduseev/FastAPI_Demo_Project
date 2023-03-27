@@ -28,6 +28,10 @@ class User(BaseModel):
     disabled: Union[bool, None] = Field(default=False)
 
 
+class UserInDB(User):
+    hashed_password: str
+
+
 class Message(BaseModel):
     message: str = Field(..., example="Default message")
 

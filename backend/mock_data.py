@@ -18,11 +18,19 @@ default_book_shelf = {
     )
 }
 
-default_users = {
-    "dg43dp87": User(
-    username="alumni",
-    full_name="John Doe",
-    email="johndoe@example.com",
-    disabled=False
-    )
+default_users_db = {
+    "johndoe": {
+        "username": "johndoe",
+        "full_name": "John Doe",
+        "email": "johndoe@example.com",
+        "hashed_password": "e5e9fa1ba31ecd1ae84f75caaa474f3a663f05f4",
+        "disabled": False,
+    },
+    "alice": {
+        "username": "alice",
+        "full_name": "Alice Wonderson",
+        "email": "alice@example.com",
+        "hashed_password": "c636e8e238fd7af97e2e500f8c6f0f4c0bedafb0",
+        "disabled": True,
+    },
 }
