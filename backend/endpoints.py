@@ -1,7 +1,9 @@
 # backend/endpoints.py
 
+import traceback
+
 from uuid import uuid4
-from typing import Union, List, Optional, Dict, Annotated, NoReturn
+from typing import Union, List, Optional, Dict, Annotated, NoReturn, AnyStr
 
 from fastapi import FastAPI, Path, Body, Query, HTTPException, status, Request, Depends
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -9,11 +11,52 @@ from fastapi.responses import JSONResponse
 
 from .mock_data import default_book_shelf, default_book, default_users_db
 from .models import IncomingBookData, Book, Message, Error, User, UserInDB
-from .authentication import oauth2_scheme, get_current_active_user
 from .security import hash_password
 
 
 app = FastAPI()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
+def fake_decode_token(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> UserInDB:
+    # return User(
+    #     username=token + "fakedecoded", 
+    #     full_name="John Doe", 
+    #     email="johndoe@example.com",
+    #     disabled=False
+    # )
+    # fixme completely insecure by now but used to understand concepts
+    user = get_user(db=default_users_db, username=token)
+    return user
+
+
+def get_user(db: Dict[AnyStr, UserInDB], username: AnyStr) -> Union[UserInDB, None]:
+    if username in db:
+        print(f"Detected user {username} in DB!")
+        user_dict = db[username]
+        return UserInDB(**user_dict)
+
+
+async def get_current_user(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> User:
+    user = fake_decode_token(token=token)
+    print(f"Gotten the following user: {user.username}")
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
+async def get_current_active_user(
+    current_user: Annotated[User, Depends(get_current_user)]
+):
+    if current_user.disabled:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Current user {current_user.username} is inactive!"
+        )
 
 
 @app.get("/")
@@ -44,7 +87,13 @@ async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> D
 
 @app.get("/users/me")
 async def read_users_me(current_user: Annotated[User, Depends(get_current_active_user)]) -> User:
-    return current_user
+    try:
+        # fixme catch error 
+        # none is not an allowed value (type=type_error.none.not_allowed)
+        return current_user
+    except Exception as e:
+        TB = traceback.format_exc()
+        print(f"Following exception occurred: {e}\nTraceback: {TB}")
 
 
 @app.get(
@@ -159,12 +208,14 @@ def delete_book(
 
         # todo add authorization via JWT token            
 
+        if book_name not in [book.book_name for book in default_book_shelf.values()]:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"The book {book_name} was not found in the book shelf!"
+            )
+
         for book_id, book in default_book_shelf.items():
             if book_name == book.book_name:
                 print(f"Book {book_name} with assigned book ID {book_id} is found on the book shelf and is to be deleted ...")
                 del default_book_shelf[book_id]
                 return Message(message=f"Book {book_name} was successfully deleted from the book shelf!")
-        raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"The book with ID {book_id} was not found in the book shelf!"
-            )

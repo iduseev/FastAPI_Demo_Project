@@ -1,6 +1,6 @@
 # backend/mock_data.py
 
-from .models import Book, User
+from .models import Book, User, UserInDB
 
 default_book = {
     "book_name": "Shantaram",
@@ -33,4 +33,18 @@ default_users_db = {
         "hashed_password": "c636e8e238fd7af97e2e500f8c6f0f4c0bedafb0",
         "disabled": True,
     },
+    # "johndoe": UserInDB(
+    #     username="johndoe",
+    #     full_name="John Doe",
+    #     email="johndoe@example.com",
+    #     hashed_password="e5e9fa1ba31ecd1ae84f75caaa474f3a663f05f4",
+    #     disabled=False
+    # ),
+    # "alice": UserInDB(
+    #     username="alice",
+    #     full_name="Alice Wonderson",
+    #     email="alice@example.com",
+    #     hashed_password="c636e8e238fd7af97e2e500f8c6f0f4c0bedafb0",
+    #     disabled=True
+    # )
 }

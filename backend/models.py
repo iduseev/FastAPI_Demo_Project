@@ -22,10 +22,10 @@ class Book(IncomingBookData):
 
 
 class User(BaseModel):
-    username: Union[str, None] = Field(default=None, example="alumni")
-    full_name: Union[str, None] = Field(default=None, example="John Doe")
-    email: Union[EmailStr, None] = Field(..., example="johndoe@example.com")
-    disabled: Union[bool, None] = Field(default=False)
+    username: str = Field(..., example="johndoe")
+    full_name: Optional[str] = Field(None, example="John Doe")
+    email: Optional[EmailStr] = Field(None, example="johndoe@example.com")
+    disabled: Optional[bool] = Field(False)
 
 
 class UserInDB(User):
