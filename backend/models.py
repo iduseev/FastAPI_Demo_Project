@@ -2,7 +2,6 @@
 
 from typing import Optional, Dict, List, Any, Union
 from pydantic import BaseModel, Field, EmailStr
-from uuid import uuid4
 
 
 class BookShelf(BaseModel):
@@ -17,19 +16,19 @@ class IncomingBookData(BaseModel):
 
 
 class Book(IncomingBookData):
-    book_id: str = Field(..., example=uuid4().hex)
+    book_id: str = Field(..., example="936d4b41ec874007af150bbac8e714c3")
     available: bool = Field(..., example=False)
 
 
 class User(BaseModel):
     username: str = Field(..., example="johndoe")
+    disabled: bool = Field(..., example=False)
     full_name: Optional[str] = Field(None, example="John Doe")
     email: Optional[EmailStr] = Field(None, example="johndoe@example.com")
-    disabled: Optional[bool] = Field(False)
 
 
 class UserInDB(User):
-    hashed_password: str
+    hashed_password: str = Field(..., example="e5e9fa1ba31ecd1ae84f75caaa474f3a663f05f4")
 
 
 class Message(BaseModel):
