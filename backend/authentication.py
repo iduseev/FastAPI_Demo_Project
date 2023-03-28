@@ -1,60 +1,118 @@
 # backend/authentication.py
 
-from uuid import uuid4
 from typing import Annotated, Dict, AnyStr, Union, NoReturn
 
+from jose import jwt, JWTError
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
-from .models import User, UserInDB
 from .mock_data import default_users_db
+from .models import User, UserInDB, TokenData
+from .security import verify_password, SECRET_KEY, ALGORITHM
 
 
 # initialize OAuth2 password bearer instance
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
-def fake_decode_token(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> UserInDB:
-    print(f"Calling 'fake_decode_token' function ...")      # fixme delete
-    print(f"incoming token: {token}\n\n")
-    # return User(
-    #     username=token + "fakedecoded", 
-    #     full_name="John Doe", 
-    #     email="johndoe@example.com",
-    #     disabled=False
-    # )
-    # fixme completely insecure by now but used to understand concepts
+def fake_decode_token_old(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> UserInDB:
+    """
+    CURRENTLY DEPRECATED FUNCTION AND NOT IN USE
+    Completely insecure by now but used to understand concepts
+
+    :param token: incoming token
+    :type token: Annotated[AnyStr, Depends(oauth2_scheme)]
+    :return: user pydantic model from the database 
+    :rtype: UserInDB
+    """
     user = get_user(db=default_users_db, username=token)
-    print(f"Gotten the following user: {user}")      # fixme delete
     return user
 
 
-def get_user(db: Dict[AnyStr, UserInDB], username: AnyStr) -> Union[UserInDB, None]:
-    print(f"Calling 'get_user' function ...")       # fixme delete
-    print(f"incoming username: {username}\n\n")
+def authenticate_user(db: Dict[AnyStr, Dict], username: AnyStr, password: AnyStr) -> Union[UserInDB, bool]:
+    """
+    Authenticates and returns a user from a fake database
+
+    :param db: database to be used to manage registered users
+    :type db: Dict[AnyStr, Dict]
+    :param username: username
+    :type username: AnyStr
+    :param password: user's plain password
+    :type password: AnyStr
+    :return: either UserInDB pydantic model or False if user not found in DB or failed to verify password
+    :rtype: Union[UserInDB, bool]
+    """
+    user = get_user(db=db, username=username)
+    if not user:
+        return False
+    if not verify_password(plain_password=password, hashed_password=user.hashed_password):
+        return False
+    return user
+
+
+def get_user(db: Dict[AnyStr, Dict], username: AnyStr) -> Union[UserInDB, None]:
+    """
+    Returns a user if it is found within the database
+
+    :param db: database with users
+    :type db: Dict[AnyStr, Dict]
+    :param username: username
+    :type username: AnyStr
+    :return: either UserInDB pydantic model with user or None if user was not found
+    :rtype: Union[UserInDB, None]
+    """
     if username in db:
-        print(f"Detected user {username} in DB!")      # fixme delete
         user_dict = db[username]
         return UserInDB(**user_dict)
 
 
-async def get_current_user(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> UserInDB:
-    print(f"Calling 'get_current_user' function ...")       # fixme delete
-    user = fake_decode_token(token=token)
-    print(f"Gotten the following user: {user.username}")      # fixme delete
-    if not user:
-        raise HTTPException(
+async def get_current_user(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> Union[UserInDB, NoReturn]:
+    """
+    Receives token, attempts to decode the received token, verifies it and returns the current user.
+    If the token is invalid, returns an HTTP error right away.
+
+    :param token: incoming JWT token
+    :type token: Annotated[AnyStr, Depends(oauth2_scheme)]
+    :raises credentials_exception: HTTPException contains status_code=HTTP_401_UNAUTHORIZED, related message and headers as per OAuth2 specs
+    :return: either current user object or raises HTTPException
+    :rtype: Union[UserInDB, NoReturn]
+    """
+    # create alias for frequently used exception
+    credentials_exception = HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid authentication credentials",
+            detail=f"Could not validate credentials!",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    print(f"Returning user: {user}\n\n")
+    
+    try:
+        payload = jwt.decode(
+            token=token,
+            key=SECRET_KEY,
+            algorithms=[ALGORITHM]
+        )
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+        token_data = TokenData(username=username)
+    except JWTError as e:
+        raise credentials_exception
+    
+    user = get_user(db=default_users_db, username=token_data.username)
+    if user is None:
+        raise credentials_exception
     return user
 
 
-async def get_current_active_user(current_user: Annotated[User, Depends(get_current_user)]) -> Union[None, NoReturn]:
-    print(f"Calling 'get_current_active_user' function ...")        # fixme delete
-    print(f"Incoming current_user: {current_user}")
+async def get_current_active_user(current_user: Annotated[User, Depends(get_current_user)]) -> Union[User, NoReturn]:
+    """
+    Chacks the current user's 'disabled' attribute value and returns user pydantic model if current user is not disabled
+
+    :param current_user: either passed User model or dependancy
+    :type current_user: Annotated[User, Depends(get_current_user)]
+    :raises HTTPException: raised when durrent user 'disabled' attribute value is True 
+    :return: either current user model if user is not disabled 
+    :rtype: Union[User, NoReturn]
+    """
     if current_user.disabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

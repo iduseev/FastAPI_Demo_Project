@@ -37,14 +37,14 @@ default_users_db = {
         "username": "johndoe",
         "full_name": "John Doe",
         "email": "johndoe@example.com",
-        "hashed_password": "e5e9fa1ba31ecd1ae84f75caaa474f3a663f05f4",
+        "hashed_password": "$2b$12$zsy2fnsZCwyFsc45bZier.rtGG2tLXLKGFpt/5wP8TVCf9tewDrjK",
         "disabled": False,
     },
     "alice": {
         "username": "alice",
         "full_name": "Alice Wonderson",
         "email": "alice@example.com",
-        "hashed_password": "c636e8e238fd7af97e2e500f8c6f0f4c0bedafb0",
+        "hashed_password": "$2b$12$lxG5P5nWY8QTM4ehuwfl3ubEvpCpL09B6vjUT8luINy71PpQu3cgu",
         "disabled": True,
     }
 }

@@ -1,16 +1,18 @@
 # backend/endpoints.py
 
 from uuid import uuid4
-from typing import Union, List, Optional, Dict, Annotated, NoReturn, AnyStr
+from datetime import timedelta
+from typing import Union, List, Dict, Annotated, NoReturn
 
 from fastapi import FastAPI, Path, Body, Query, HTTPException, status, Request, Depends
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
+from fastapi.security import OAuth2PasswordRequestForm
 
 from .mock_data import default_book_shelf, default_book, default_users_db
-from .models import IncomingBookData, Book, Message, Error, User, UserInDB
-from .authentication import oauth2_scheme, get_current_active_user
-from .security import hash_password
+
+from .security import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from .models import IncomingBookData, Book, Message, Error, User, Token
+from .authentication import oauth2_scheme, get_current_active_user, authenticate_user
 
 
 app = FastAPI()
@@ -23,27 +25,46 @@ async def read_root() -> Dict:
     }
 
 
-@app.post("/token")
-async def login(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Dict:
-    user_dict = default_users_db.get(form_data.username)
-    if not user_dict:
+@app.post("/token",response_model=Token)
+async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Dict:
+    """
+    Authenticates the user and creates JWT access token for him  
+
+    :param form_data: data from the authentication form
+    :type form_data: Annotated[OAuth2PasswordRequestForm, Depends
+    :raises HTTPException: exception with status_code HTTP_401_UNAUTHORIZED in case the system was not able to authenticate the user 
+    :return: JWT access token in dict format with indicated token type 
+    :rtype: Dict
+    """
+    # attempt to authenticate user
+    user = authenticate_user(db=default_users_db, username=form_data.username, password=form_data.password)
+    if not user:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Incorrect username or password"
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    user = UserInDB(**user_dict)
-    # check password validity
-    hashed_password = hash_password(password=form_data.password)
-    if not hashed_password == user.hashed_password:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Incorrect username or password"
+    # define JWT token expiry time
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    # create JWT access token fot the user
+    # key 'sub' with the token subject is added as per JWT specs
+    access_token = create_access_token(
+        data={"sub": user.username},  
+        expires_delta=access_token_expires
         )
-    return {"access_token": user.username, "token_type": "bearer"}
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @app.get("/users/me")
 async def read_users_me(current_user: Annotated[User, Depends(get_current_active_user)]) -> User:
+    """
+    Returns info about currently logged user
+
+    :param current_user: either User pydantic model or dependency
+    :type current_user: Annotated[User, Depends(get_current_active_user)]
+    :return: pydantic model of the currently active user
+    :rtype: User
+    """
     return current_user
 
 
@@ -60,14 +81,17 @@ def read_book(
         token: Annotated[str, Depends(oauth2_scheme)],
         book_id: str = Path(..., title="Required book ID", example="936d4b41ec874007af150bbac8e714c3")
     ) -> Book:
-    """_summary_
+    """
+    Extract book data from the book shelf by book ID 
 
-    :param request: _description_
+    :param request: request object
     :type request: Request
-    :param book_id: _description_, defaults to Path(..., title="Required book ID", example="936d4b41ec874007af150bbac8e714c3")
-    :type book_id: str, optional
-    :raises HTTPException: _description_
-    :return: _description_
+    :param token: JWT access token assigned to the user
+    :type token: Annotated[str, Depends(oauth2_scheme)]
+    :param book_id: Path parameter, book ID gotten from the route
+    :type book_id: str
+    :raises HTTPException: exception  with status_code HTTP_404_NOT_FOUND raised in case the given book_id is not found on the book shelf 
+    :return: pydantic model of the requested book
     :rtype: Book
     """
     client_host = request.client.host
@@ -94,6 +118,18 @@ def show_books(
         token: Annotated[str, Depends(oauth2_scheme)],
         limit: int = Query(default=10, example=10)
     ) -> List[Book]:
+    """
+    Shows all the books available on the book shelf, allows to limit the number of showed books 
+
+    :param request: request object
+    :type request: Request
+    :param token: JWT access token assigned to the user
+    :type token: Annotated[str, Depends(oauth2_scheme)]
+    :param limit: query parameter, used to limit the returning book batch, defaults to 10
+    :type limit: int, optional
+    :return: list of books currently available on the book shelf, limited by given number (if applicable)
+    :rtype: List[Book]
+    """
     return list(default_book_shelf.values())[: limit]
 
 
@@ -110,7 +146,20 @@ def add_book(
     request: Request,
     token: Annotated[str, Depends(oauth2_scheme)],
     incoming_book: IncomingBookData = Body(..., title="Required book data to be added", example=default_book)
-    ) -> Union[NoReturn, Message]:
+    ) -> Union[Message, NoReturn]:
+    """
+    Accepts book data and adds a new Book pydantic model object to the book shelf in DB 
+
+    :param request: request object
+    :type request: Request
+    :param token: JWT access token assigned to the user
+    :type token: Annotated[str, Depends(oauth2_scheme)]
+    :param incoming_book: body parameter, new book data
+    :type incoming_book: IncomingBookData, optional
+    :raises HTTPException: exception with status_code HTTP_409_CONFLICT raised in case the given book name already exists on the book shelf 
+    :return: message about successful adding a new book to the book shelf
+    :rtype: Union[Message, NoReturn]
+    """
     client_host = request.client.host
     print(f"Detected incoming GET request from the client with IP {client_host} ...")
 
@@ -157,20 +206,33 @@ def delete_book(
     request: Request, 
     token: Annotated[str, Depends(oauth2_scheme)],
     book_name: str = Path(..., title="Required book name to be deleted", example="Shantaram")
-) -> Union[NoReturn, Message]:
-        client_host = request.client.host
-        print(f"Detected incoming GET request from the client with IP {client_host} ...")
+) -> Union[Message, NoReturn]:
+    """
+    Deletes a book from the book shelf by given book name
 
-        # todo add authorization via JWT token            
+    :param request: request object
+    :type request: Request
+    :param token: JWT access token assigned to the user
+    :type token: Annotated[str, Depends(oauth2_scheme)]
+    :param book_name: Path parameter, book name gotten from the route
+    :type book_name: str, optional
+    :raises HTTPException: exception with status_code HTTP_404_NOT_FOUND raised in case the given book name does not exist on the book shelf
+    :return: message about successful book deletion from the book shelf
+    :rtype: Union[NoReturn, Message]
+    """
+    client_host = request.client.host
+    print(f"Detected incoming GET request from the client with IP {client_host} ...")
 
-        if book_name not in [book.book_name for book in default_book_shelf.values()]:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"The book {book_name} was not found in the book shelf!"
-            )
+    # todo add authorization via JWT token            
 
-        for book_id, book in default_book_shelf.items():
-            if book_name == book.book_name:
-                print(f"Book {book_name} with assigned book ID {book_id} is found on the book shelf and is to be deleted ...")
-                del default_book_shelf[book_id]
-                return Message(message=f"Book {book_name} was successfully deleted from the book shelf!")
+    if book_name not in [book.book_name for book in default_book_shelf.values()]:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"The book {book_name} was not found in the book shelf!"
+        )
+
+    for book_id, book in default_book_shelf.items():
+        if book_name == book.book_name:
+            print(f"Book {book_name} with assigned book ID {book_id} is found on the book shelf and is to be deleted ...")
+            del default_book_shelf[book_id]
+            return Message(message=f"Book {book_name} was successfully deleted from the book shelf!")

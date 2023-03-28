@@ -1,10 +1,13 @@
 # backend/models.py
 
-from typing import Optional, Dict, List, Any, Union
+from typing import Optional
 from pydantic import BaseModel, Field, EmailStr
 
 
 class BookShelf(BaseModel):
+    """
+    CURRENTLY NOT IN USE YET
+    """
     category: Optional[str] = Field(None, example="Adventures")
     location: Optional[str] = Field(None, example="London, 96 Euston Road")
 
@@ -29,6 +32,15 @@ class User(BaseModel):
 
 class UserInDB(User):
     hashed_password: str = Field(..., example="e5e9fa1ba31ecd1ae84f75caaa474f3a663f05f4")
+
+
+class Token(BaseModel):
+    access_token: str = Field(..., example="")  # todo add example value
+    token_type: str = Field(..., example="")    # todo add example value
+
+
+class TokenData(BaseModel):
+    username: Optional[str] = Field(None, example="")   # todo add example value
 
 
 class Message(BaseModel):
