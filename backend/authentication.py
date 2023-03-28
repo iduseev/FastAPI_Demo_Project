@@ -17,7 +17,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 def fake_decode_token_old(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> UserInDB:
     """
-    CURRENTLY DEPRECATED FUNCTION AND NOT IN USE
+    CURRENTLY DEPRECATED FUNCTION AND IS NOT IN USE
     Completely insecure by now but used to understand concepts
 
     :param token: incoming token
@@ -105,7 +105,7 @@ async def get_current_user(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> 
 
 async def get_current_active_user(current_user: Annotated[User, Depends(get_current_user)]) -> Union[User, NoReturn]:
     """
-    Chacks the current user's 'disabled' attribute value and returns user pydantic model if current user is not disabled
+    Checks the current user's 'disabled' attribute value and returns user pydantic model if current user is not disabled
 
     :param current_user: either passed User model or dependancy
     :type current_user: Annotated[User, Depends(get_current_user)]
