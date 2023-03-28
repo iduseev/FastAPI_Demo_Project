@@ -31,16 +31,16 @@ class User(BaseModel):
 
 
 class UserInDB(User):
-    hashed_password: str = Field(..., example="e5e9fa1ba31ecd1ae84f75caaa474f3a663f05f4")
+    hashed_password: str = Field(..., example="$2b$12$zsy2fnsZCwyFsc45bZier.rtGG2tLXLKGFpt/5wP8TVCf9tewDrjK")
 
 
 class Token(BaseModel):
     access_token: str = Field(..., example="")  # todo add example value
-    token_type: str = Field(..., example="")    # todo add example value
+    token_type: str = Field(..., example="bearer")
 
 
 class TokenData(BaseModel):
-    username: Optional[str] = Field(None, example="")   # todo add example value
+    username: Optional[str] = Field(None, example="johndoe")
 
 
 class Message(BaseModel):
