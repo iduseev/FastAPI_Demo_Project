@@ -98,7 +98,7 @@ def show_books(
 
 
 @app.post(
-    "/books/{book_name}",
+    "/books/add_book",
     status_code=status.HTTP_201_CREATED,
     response_model=Message,
     responses={
