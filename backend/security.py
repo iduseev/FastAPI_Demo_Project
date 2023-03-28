@@ -10,7 +10,7 @@ from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# SECRET_KEY generated using the following command:
+# SECRET_KEY generated usDing the following command:
 # openssl rand -hex 32
 SECRET_KEY = "72f3c1ec8caadebb29e3e77f461bc36f08f1510d70ca92f175432f38a07ef1ea"
 ALGORITHM = "HS256"
@@ -22,7 +22,7 @@ def hash_password_old(password: AnyStr) -> AnyStr:
     CURRENTLY DEPRECATED FUNCTION AND IS NOT IN USE
     Hashing password using hashlib sha1
 
-    :param password: raw user passwordpassed from authentication form
+    :param password: raw user password passed from authentication form
     :type password: AnyStr
     :return: password value hashed via sha1 algorithm
     :rtype: AnyStr
@@ -62,8 +62,8 @@ def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -
 
     :param data: data to be used as claims set
     :type data: Dict
-    :param expres_delta: desired JWT token lifetime, defaults to None
-    :type expres_delta: Optional[timedelta], optional
+    :param expires_delta: desired JWT token lifetime, defaults to None
+    :type expires_delta: Optional[timedelta], optional
     :return: JWT string
     :rtype: AnyStr
     """
