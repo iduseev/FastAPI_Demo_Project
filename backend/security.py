@@ -79,8 +79,9 @@ def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -
         algorithm=config["ALGORITHM"]
     )
     return {
-        "encoded_jwt": encoded_jwt, 
+        "access_token": encoded_jwt,
+        "token_type": "Bearer", 
         "expires_at": expires_at.astimezone().isoformat(), 
         "expires_in": expires_delta.seconds, 
-        "utc_now": utcnow.replace(tzinfo=timezone.utc).isoformat()
+        "updated_at": utcnow.replace(tzinfo=timezone.utc).isoformat()
     }

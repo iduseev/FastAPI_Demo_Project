@@ -30,7 +30,7 @@ async def read_root() -> Dict:
 
 
 @app.post("/token", response_model=Token, tags=["user"])
-async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> JSONResponse:
+async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
     """
     Authenticates the user and creates JWT access token for him  
 
@@ -38,7 +38,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     :type form_data: Annotated[OAuth2PasswordRequestForm, Depends
     :raises HTTPException: exception with status_code HTTP_401_UNAUTHORIZED in case the system was not able to authenticate the user 
     :return: JWT access token in dict format with indicated token type 
-    :rtype: JSONResponse
+    :rtype: Token pydantic model
     """
     # attempt to authenticate user
     user = authenticate_user(db=default_users_db, username=form_data.username, password=form_data.password)
@@ -56,16 +56,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
         data={"sub": user.username},  
         expires_delta=access_token_expires
         )
-    return JSONResponse(
-        content={
-            "access_token": access_token_data.get("encoded_jwt"), 
-            "token_type": "Bearer",
-            "expires_at": access_token_data.get("expires_at"),
-            "expires_in": access_token_data.get("expires_in"),
-            "updated_at": access_token_data.get("utc_now"),
-            },
-        status_code=status.HTTP_200_OK
-    )
+    return Token(**access_token_data)
 
 
 
@@ -118,13 +109,7 @@ async def create_user(
         expires_delta=access_token_expires
         )
     return JSONResponse(
-        content={
-            "access_token": access_token_data.get("encoded_jwt"), 
-            "token_type": "Bearer",
-            "expires_at": access_token_data.get("expires_at"),
-            "expires_in": access_token_data.get("expires_in"),
-            "updated_at": access_token_data.get("utc_now"),
-            },
+        content=access_token_data,
         status_code=status.HTTP_200_OK
     )
 
