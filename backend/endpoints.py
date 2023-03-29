@@ -5,28 +5,27 @@ from datetime import timedelta
 from typing import Union, List, Dict, Annotated, NoReturn
 
 from fastapi import FastAPI, Path, Body, Query, HTTPException, status, Request, Depends
-from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.responses import JSONResponse
 
-from .mock_data import default_book_shelf, default_book, default_users_db
-
-from .security import create_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
-from .models import IncomingBookData, Book, Message, Error, User, Token
+from .mock_data import default_book_shelf, default_book, default_users_db, default_user
+from .models import IncomingBookData, Book, Message, Error, User, Token, UserInDB
 from .authentication import oauth2_scheme, get_current_active_user, authenticate_user
+from .security import create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
 
 
 app = FastAPI()
 
 
-@app.get("/")
+@app.get("/", tags=["root"])
 async def read_root() -> Dict:
     return {
         "message": "Hello, welcome to the Demo Library API service built using amazing FastAPI framework!",
     }
 
 
-@app.post("/token",response_model=Token)
-async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Dict:
+@app.post("/token", response_model=Token, tags=["user"])
+async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> JSONResponse:
     """
     Authenticates the user and creates JWT access token for him  
 
@@ -34,7 +33,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     :type form_data: Annotated[OAuth2PasswordRequestForm, Depends
     :raises HTTPException: exception with status_code HTTP_401_UNAUTHORIZED in case the system was not able to authenticate the user 
     :return: JWT access token in dict format with indicated token type 
-    :rtype: Dict
+    :rtype: JSONResponse
     """
     # attempt to authenticate user
     user = authenticate_user(db=default_users_db, username=form_data.username, password=form_data.password)
@@ -48,15 +47,25 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     # create JWT access token fot the user
     # key 'sub' with the token subject is added as per JWT specs
-    access_token = create_access_token(
+    access_token_data = create_access_token(
         data={"sub": user.username},  
         expires_delta=access_token_expires
         )
-    return {"access_token": access_token, "token_type": "bearer"}
+    return JSONResponse(
+        content={
+            "access_token": access_token_data.get("encoded_jwt"), 
+            "token_type": "Bearer",
+            "expires_at": access_token_data.get("expires_at"),
+            "expires_in": access_token_data.get("expires_in"),
+            "updated_at": access_token_data.get("utc_now"),
+            },
+        status_code=status.HTTP_200_OK
+    )
 
 
-@app.get("/users/me")
-async def read_users_me(current_user: Annotated[User, Depends(get_current_active_user)]) -> User:
+
+@app.get("/user/me", tags=["user"])
+async def read_user_me(current_user: Annotated[User, Depends(get_current_active_user)]) -> UserInDB:
     """
     Returns info about currently logged user
 
@@ -65,7 +74,54 @@ async def read_users_me(current_user: Annotated[User, Depends(get_current_active
     :return: pydantic model of the currently active user
     :rtype: User
     """
-    return current_user
+    current_user_data = current_user.dict()
+    current_user_db_entry = UserInDB(**current_user_data)
+    return current_user_db_entry
+
+
+@ app.post("/user/signup", tags=["user"])
+async def create_user(
+    new_user: User = Body(..., title="Required new user information", example=default_user)
+    ) -> JSONResponse:
+    """
+    Creates a new user with passed username and password. Adds new user entry in the DB, preserving only
+    hashed password value
+
+    :param new_user: new user data
+    :type new_user: User pydantic model
+    :return: JWT token with 
+    :rtype: JSONResponse
+    """
+    # get hash for plain password of the new user
+    hashed_password = get_password_hash(plain_password=new_user.password)
+    # create UserInDB user model because it should not contain plain password in attribute
+    new_user_in_db = UserInDB(
+        username=new_user.username,
+        hashed_password=hashed_password,
+        disabled=new_user.disabled,
+        full_name=new_user.full_name,
+        email=new_user.email
+    )
+    # add new user to the database
+    default_users_db[new_user_in_db.username] = new_user_in_db.dict()
+    # define JWT token expiry time
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    # create JWT access token fot the user
+    # key 'sub' with the token subject is added as per JWT specs
+    access_token_data = create_access_token(
+        data={"sub": new_user_in_db.username},  
+        expires_delta=access_token_expires
+        )
+    return JSONResponse(
+        content={
+            "access_token": access_token_data.get("encoded_jwt"), 
+            "token_type": "Bearer",
+            "expires_at": access_token_data.get("expires_at"),
+            "expires_in": access_token_data.get("expires_in"),
+            "updated_at": access_token_data.get("utc_now"),
+            },
+        status_code=status.HTTP_200_OK
+    )
 
 
 @app.get(
@@ -75,6 +131,7 @@ async def read_users_me(current_user: Annotated[User, Depends(get_current_active
     responses={
         status.HTTP_404_NOT_FOUND: {"model": Error}
     },
+    tags=["books"]
 )
 def read_book(
         request: Request, 
@@ -111,7 +168,8 @@ def read_book(
     "/books",
     status_code=status.HTTP_200_OK,
     response_model=List[Book],
-    responses={status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": Error}}
+    responses={status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": Error}},
+    tags=["books"]
     )
 def show_books(
         request: Request,
@@ -140,7 +198,8 @@ def show_books(
     responses={
         status.HTTP_409_CONFLICT: {"model": Error},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": Error}
-    }
+    },
+    tags=["books"]
 )
 def add_book(
     request: Request,
@@ -200,7 +259,8 @@ def add_book(
     responses={
         status.HTTP_404_NOT_FOUND: {"model": Error},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": Error}
-    }
+    },
+    tags=["books"]
 )
 def delete_book(
     request: Request, 

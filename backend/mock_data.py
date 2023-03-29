@@ -8,6 +8,14 @@ default_book = {
     "description": "Shantaram is a journey through the life of a convict on the lamb, a slum dweller, a prisoner in a crowded Indian jail"
 }
 
+default_user = {
+        "username": "iduseev",
+        "password": "weak_password",
+        "full_name": "Ilgiz Duseev",
+        "email": "iduseev@example.com",
+        "disabled": False,
+}
+
 default_book_shelf = {
     "936d4b41ec874007af150bbac8e714c3": Book(
         book_name="Shantaram",

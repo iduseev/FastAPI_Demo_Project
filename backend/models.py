@@ -25,18 +25,26 @@ class Book(IncomingBookData):
 
 class User(BaseModel):
     username: str = Field(..., example="johndoe")
+    password: str = Field(..., example="weak_password")
     disabled: bool = Field(..., example=False)
     full_name: Optional[str] = Field(None, example="John Doe")
     email: Optional[EmailStr] = Field(None, example="johndoe@example.com")
 
 
-class UserInDB(User):
+class UserInDB(BaseModel):
+    username: str = Field(..., example="johndoe")
     hashed_password: str = Field(..., example="$2b$12$zsy2fnsZCwyFsc45bZier.rtGG2tLXLKGFpt/5wP8TVCf9tewDrjK")
+    disabled: bool = Field(..., example=False)
+    full_name: Optional[str] = Field(None, example="John Doe")
+    email: Optional[EmailStr] = Field(None, example="johndoe@example.com")
 
 
 class Token(BaseModel):
-    access_token: str = Field(..., example="")  # todo add example value
-    token_type: str = Field(..., example="bearer")
+    access_token: str = Field(..., example="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c")
+    token_type: str = Field(..., example="Bearer")
+    expires_at: Optional[str] = Field(None, example="2023-03-30T13:22:01.366168+06:00")
+    expires_in: Optional[int] = Field(None, example=21600)
+    updated_at: Optional[str] = Field(None, example="2023-03-29T07:22:01.366168+00:00")
 
 
 class TokenData(BaseModel):
