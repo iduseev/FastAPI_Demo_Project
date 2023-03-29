@@ -4,17 +4,22 @@ from uuid import uuid4
 from datetime import timedelta
 from typing import Union, List, Dict, Annotated, NoReturn
 
+from dotenv import dotenv_values
 from fastapi import FastAPI, Path, Body, Query, HTTPException, status, Request, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
 
-from .mock_data import default_book_shelf, default_book, default_users_db, default_user
+from .security import create_access_token, get_password_hash
 from .models import IncomingBookData, Book, Message, Error, User, Token, UserInDB
 from .authentication import oauth2_scheme, get_current_active_user, authenticate_user
-from .security import create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
+from .mock_data import default_book_shelf, default_book, default_users_db, default_user
 
 
+# initialize FastAPI application instance
 app = FastAPI()
+
+# extract environmental variables from .env file
+config = dotenv_values(".env")
 
 
 @app.get("/", tags=["root"])
@@ -44,7 +49,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
             headers={"WWW-Authenticate": "Bearer"},
         )
     # define JWT token expiry time
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=int(config["ACCESS_TOKEN_EXPIRE_MINUTES"]))
     # create JWT access token fot the user
     # key 'sub' with the token subject is added as per JWT specs
     access_token_data = create_access_token(
@@ -105,7 +110,7 @@ async def create_user(
     # add new user to the database
     default_users_db[new_user_in_db.username] = new_user_in_db.dict()
     # define JWT token expiry time
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(minutes=int(config["ACCESS_TOKEN_EXPIRE_MINUTES"]))
     # create JWT access token fot the user
     # key 'sub' with the token subject is added as per JWT specs
     access_token_data = create_access_token(

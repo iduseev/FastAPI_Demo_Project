@@ -3,16 +3,20 @@
 from typing import Annotated, Dict, AnyStr, Union, NoReturn
 
 from jose import jwt, JWTError
+from dotenv import dotenv_values
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
+from .security import verify_password
 from .mock_data import default_users_db
 from .models import User, UserInDB, TokenData
-from .security import verify_password, SECRET_KEY, ALGORITHM
 
 
 # initialize OAuth2 password bearer instance
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+# extract environmental variables from .env file
+config = dotenv_values(".env")
 
 
 def fake_decode_token_old(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> UserInDB:
@@ -87,8 +91,8 @@ async def get_current_user(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> 
     try:
         payload = jwt.decode(
             token=token,
-            key=SECRET_KEY,
-            algorithms=[ALGORITHM]
+            key=config["SECRET_KEY"],
+            algorithms=[config["ALGORITHM"]]
         )
         username: str = payload.get("sub")
         if username is None:

@@ -5,16 +5,12 @@ from datetime import datetime, timedelta, timezone
 from typing import AnyStr, Dict, NoReturn, Union, Optional
 
 from jose import jwt
+from dotenv import dotenv_values
 from passlib.context import CryptContext 
 
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# SECRET_KEY generated usDing the following command:
-# openssl rand -hex 32
-SECRET_KEY = "72f3c1ec8caadebb29e3e77f461bc36f08f1510d70ca92f175432f38a07ef1ea" # todo move to .env file
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 1800
+config = dotenv_values(".env")
 
 
 def hash_password_old(password: AnyStr) -> AnyStr:
@@ -79,8 +75,8 @@ def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -
     # encode the given contents to get a JWT token
     encoded_jwt = jwt.encode(
         claims=to_encode,
-        key=SECRET_KEY,
-        algorithm=ALGORITHM
+        key=config["SECRET_KEY"],
+        algorithm=config["ALGORITHM"]
     )
     return {
         "encoded_jwt": encoded_jwt, 
