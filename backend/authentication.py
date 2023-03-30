@@ -2,7 +2,7 @@
 
 from typing import Annotated, Dict, AnyStr, Union, NoReturn
 
-from jose import jwt, JWTError
+from jose import JWTError
 from dotenv import dotenv_values
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -13,7 +13,7 @@ from .security import verify_password, decode_jwt_token
 
 
 # initialize OAuth2 password bearer instance
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", scheme_name="JWT")
 
 # extract environmental variables from .env file
 config = dotenv_values(".env")

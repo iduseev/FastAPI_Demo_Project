@@ -29,7 +29,12 @@ async def read_root() -> Dict:
     }
 
 
-@app.post("/token", response_model=Token, tags=["user"])
+@app.post(
+    "/token", 
+    summary="Login to get JWT access token",
+    response_model=Token, 
+    tags=["user"]
+)
 async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
     """
     Authenticates the user and creates JWT access token for him  
@@ -75,7 +80,12 @@ async def read_user_me(current_user: Annotated[User, Depends(get_current_active_
     return current_user_db_entry
 
 
-@ app.post("/user/signup", response_model=Message, tags=["user"])
+@ app.post(
+    "/user/signup", 
+    summary="Create new user",
+    response_model=Message, 
+    tags=["user"]
+)
 async def create_user(
     new_user: User = Body(..., title="Required new user information", example=default_user)
     ) -> Message:
@@ -99,8 +109,8 @@ async def create_user(
         email=new_user.email
     )
     # add new user to the database
-    default_users_db[new_user_in_db.username] = new_user_in_db.dict()
     
+    default_users_db[new_user_in_db.username] = new_user_in_db.dict()
     # fixme is it needed to create new JWT token when creating new user? We already create JWT token in another route
     
     # define JWT token expiry time
@@ -120,6 +130,7 @@ async def create_user(
 
 @app.get(
     "/books/{book_id}",
+    summary="Show information about particular book",
     status_code=status.HTTP_200_OK,
     response_model=Book,
     responses={
@@ -160,6 +171,7 @@ def read_book(
 
 @app.get(
     "/books",
+    summary="Show all books available on the book shelf",
     status_code=status.HTTP_200_OK,
     response_model=List[Book],
     responses={status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": Error}},
@@ -187,6 +199,7 @@ def show_books(
 
 @app.post(
     "/books/add_book",
+    summary="Add a new book to the book shelf",
     status_code=status.HTTP_201_CREATED,
     response_model=Message,
     responses={
@@ -248,6 +261,7 @@ def add_book(
 
 @app.delete(
     "/books/delete/{book_name}",
+    summary="Delete a book from the book shelf",
     status_code=status.HTTP_200_OK,
     response_model=Message,
     responses={

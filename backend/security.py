@@ -94,7 +94,7 @@ def decode_jwt_token(encoded_token: AnyStr) -> Dict[AnyStr, AnyStr]:
 
     :param encoded_token: encoded JWT token
     :type encoded_token: AnyStr
-    :return: decoded JWT token pyload
+    :return: decoded JWT token payload
     :rtype: Dict[AnyStr, AnyStr]
     """
     payload = jwt.decode(
@@ -103,3 +103,6 @@ def decode_jwt_token(encoded_token: AnyStr) -> Dict[AnyStr, AnyStr]:
         algorithms=config["ALGORITHM"]
     )
     return payload
+
+
+# TODO add function to verify JWT token
