@@ -103,15 +103,15 @@ async def get_current_user(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> 
     return user
 
 
-async def get_current_active_user(current_user: Annotated[User, Depends(get_current_user)]) -> Union[User, NoReturn]:
+async def get_current_active_user(current_user: Annotated[UserInDB, Depends(get_current_user)]) -> Union[UserInDB, NoReturn]:
     """
     Checks the current user's 'disabled' attribute value and returns user pydantic model if current user is not disabled
 
-    :param current_user: either passed User model or dependancy
+    :param current_user: either passed User model or dependency
     :type current_user: Annotated[User, Depends(get_current_user)]
-    :raises HTTPException: raised when durrent user 'disabled' attribute value is True 
+    :raises HTTPException: raised when current user 'disabled' attribute value is True 
     :return: either current user model if user is not disabled 
-    :rtype: Union[User, NoReturn]
+    :rtype: Union[UserInDB, NoReturn]
     """
     if current_user.disabled:
         raise HTTPException(
