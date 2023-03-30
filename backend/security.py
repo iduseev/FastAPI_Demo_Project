@@ -85,3 +85,21 @@ def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -
         "expires_in": expires_delta.seconds, 
         "updated_at": utcnow.replace(tzinfo=timezone.utc).isoformat()
     }
+
+
+def decode_jwt_token(encoded_token: AnyStr) -> Dict[AnyStr, AnyStr]:
+    """
+    Decodes given JWT token based on secret key and algorithm from 
+    config and returns decoded JTW token payload
+
+    :param encoded_token: encoded JWT token
+    :type encoded_token: AnyStr
+    :return: decoded JWT token pyload
+    :rtype: Dict[AnyStr, AnyStr]
+    """
+    payload = jwt.decode(
+        token=encoded_token,
+        key=config["SECRET_KEY"],
+        algorithms=config["ALGORITHM"]
+    )
+    return payload

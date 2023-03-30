@@ -75,18 +75,18 @@ async def read_user_me(current_user: Annotated[User, Depends(get_current_active_
     return current_user_db_entry
 
 
-@ app.post("/user/signup", tags=["user"])
+@ app.post("/user/signup", response_model=Message, tags=["user"])
 async def create_user(
     new_user: User = Body(..., title="Required new user information", example=default_user)
-    ) -> JSONResponse:
+    ) -> Message:
     """
     Creates a new user with passed username and password. Adds new user entry in the DB, preserving only
     hashed password value
 
     :param new_user: new user data
     :type new_user: User pydantic model
-    :return: JWT token with 
-    :rtype: JSONResponse
+    :return: Message about successful new user creation 
+    :rtype: Message
     """
     # get hash for plain password of the new user
     hashed_password = get_password_hash(plain_password=new_user.password)
@@ -100,18 +100,22 @@ async def create_user(
     )
     # add new user to the database
     default_users_db[new_user_in_db.username] = new_user_in_db.dict()
+    
+    # fixme is it needed to create new JWT token when creating new user? We already create JWT token in another route
+    
     # define JWT token expiry time
-    access_token_expires = timedelta(minutes=int(config["ACCESS_TOKEN_EXPIRE_MINUTES"]))
+    # access_token_expires = timedelta(minutes=int(config["ACCESS_TOKEN_EXPIRE_MINUTES"]))
     # create JWT access token fot the user
     # key 'sub' with the token subject is added as per JWT specs
-    access_token_data = create_access_token(
-        data={"sub": new_user_in_db.username},  
-        expires_delta=access_token_expires
-        )
-    return JSONResponse(
-        content=access_token_data,
-        status_code=status.HTTP_200_OK
-    )
+    # access_token_data = create_access_token(
+    #     data={"sub": new_user_in_db.username},  
+    #     expires_delta=access_token_expires
+    #     )
+    # return JSONResponse(
+    #     content=access_token_data,
+    #     status_code=status.HTTP_200_OK
+    # )
+    return Message(message=f"Successfully created new user {new_user.username} and added to DB!")
 
 
 @app.get(

@@ -7,9 +7,9 @@ from dotenv import dotenv_values
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
-from .security import verify_password
 from .mock_data import default_users_db
 from .models import User, UserInDB, TokenData
+from .security import verify_password, decode_jwt_token
 
 
 # initialize OAuth2 password bearer instance
@@ -89,11 +89,7 @@ async def get_current_user(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> 
         )
     
     try:
-        payload = jwt.decode(
-            token=token,
-            key=config["SECRET_KEY"],
-            algorithms=[config["ALGORITHM"]]
-        )
+        payload = decode_jwt_token(encoded_token=token)
         username: str = payload.get("sub")
         if username is None:
             raise credentials_exception
