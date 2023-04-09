@@ -7,9 +7,10 @@ from dotenv import dotenv_values
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 
-from .mock_data import default_users_db
+from .database import MongoAdapter
 from .models import User, UserInDB, TokenData
 from .security import verify_password, decode_jwt_token
+
 
 
 # initialize OAuth2 password bearer instance
@@ -19,26 +20,28 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", scheme_name="JWT")
 config = dotenv_values(".env")
 
 
-def fake_decode_token_old(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> UserInDB:
+def fake_decode_token_old(mongo_adapter: MongoAdapter, token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> UserInDB:
     """
     CURRENTLY DEPRECATED FUNCTION AND IS NOT IN USE
     Completely insecure by now but used to understand concepts
 
+    :param db: database with users collection
+    :type db: MongoAdapter class instance
     :param token: incoming token
     :type token: Annotated[AnyStr, Depends(oauth2_scheme)]
     :return: user pydantic model from the database 
     :rtype: UserInDB
     """
-    user = get_user(db=default_users_db, username=token)
+    user = get_user(mongo_adapter=mongo_adapter, username=token)
     return user
 
 
-def authenticate_user(db: Dict[AnyStr, Dict], username: AnyStr, password: AnyStr) -> Union[UserInDB, bool]:
+def authenticate_user(mongo_adapter: MongoAdapter, username: AnyStr, password: AnyStr) -> Union[UserInDB, bool]:
     """
     Authenticates and returns a user from a fake database
 
     :param db: database to be used to manage registered users
-    :type db: Dict[AnyStr, Dict]
+    :type db: MongoAdapter class instance
     :param username: username
     :type username: AnyStr
     :param password: user's plain password
@@ -46,7 +49,7 @@ def authenticate_user(db: Dict[AnyStr, Dict], username: AnyStr, password: AnyStr
     :return: either UserInDB pydantic model or False if user not found in DB or failed to verify password
     :rtype: Union[UserInDB, bool]
     """
-    user = get_user(db=db, username=username)
+    user = get_user(mongo_adapter=mongo_adapter, username=username)
     if not user:
         return False
     if not verify_password(plain_password=password, hashed_password=user.hashed_password):
@@ -54,27 +57,30 @@ def authenticate_user(db: Dict[AnyStr, Dict], username: AnyStr, password: AnyStr
     return user
 
 
-def get_user(db: Dict[AnyStr, Dict], username: AnyStr) -> Union[UserInDB, None]:
+def get_user(mongo_adapter: MongoAdapter, username: AnyStr) -> Union[UserInDB, None]:
     """
     Returns a user if it is found within the database
 
-    :param db: database with users
-    :type db: Dict[AnyStr, Dict]
+    :param db: database with users collection
+    :type db: MongoAdapter class instance
     :param username: username
     :type username: AnyStr
     :return: either UserInDB pydantic model with user or None if user was not found
     :rtype: Union[UserInDB, None]
     """
-    if username in db:
-        user_dict = db[username]
+    user_dict = mongo_adapter.read_first_match(data={"username": username})
+    if user_dict:
         return UserInDB(**user_dict)
+    return
 
 
-async def get_current_user(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> Union[UserInDB, NoReturn]:
+async def get_current_user(mongo_adapter: MongoAdapter, token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> Union[UserInDB, NoReturn]:
     """
     Receives token, attempts to decode the received token, verifies it and returns the current user.
     If the token is invalid, returns an HTTP error right away.
 
+    :param db: database with users collection
+    :type db: MongoAdapter class instance
     :param token: incoming JWT token
     :type token: Annotated[AnyStr, Depends(oauth2_scheme)]
     :raises credentials_exception: HTTPException contains status_code=HTTP_401_UNAUTHORIZED, related message and headers as per OAuth2 specs
@@ -97,7 +103,7 @@ async def get_current_user(token: Annotated[AnyStr, Depends(oauth2_scheme)]) -> 
     except JWTError as e:
         raise credentials_exception
     
-    user = get_user(db=default_users_db, username=token_data.username)
+    user = get_user(mongo_adapter=mongo_adapter, username=token_data.username)
     if user is None:
         raise credentials_exception
     return user

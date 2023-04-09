@@ -9,17 +9,42 @@ from fastapi import FastAPI, Path, Body, Query, HTTPException, status, Request, 
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.responses import JSONResponse
 
+from .database import MongoAdapter
 from .security import create_access_token, get_password_hash
 from .models import IncomingBookData, Book, Message, Error, User, Token, UserInDB
 from .authentication import oauth2_scheme, get_current_active_user, authenticate_user
 from .mock_data import default_book_shelf, default_book, default_users_db, default_user
 
 
+# extract environmental variables from .env file
+config = dotenv_values(".env")
+
 # initialize FastAPI application instance
 app = FastAPI()
 
-# extract environmental variables from .env file
-config = dotenv_values(".env")
+# init MongoAdapter class instances to work with different collections in DB
+ma_user_collection = MongoAdapter(
+    host=config["MONGODB_HOST"],
+    port=config["MONGODB_PORT"],
+    db_name=config["MONGODB_DB_NAME"],
+    username=config["MONGODB_USERNAME"],
+    password=config["MONGODB_PASSWORD"],
+    requires_auth=True,
+    collection_name=config["MONGODB_USER_COLLECTION_NAME"],
+    required_index_params=[("username", True)]
+)
+
+ma_books_collection = MongoAdapter(
+    host=config["MONGODB_HOST"],
+    port=config["MONGODB_PORT"],
+    db_name=config["MONGODB_DB_NAME"],
+    username=config["MONGODB_USERNAME"],
+    password=config["MONGODB_PASSWORD"],
+    requires_auth=True,
+    collection_name=config["MONGODB_BOOK_SHELF_COLLECTION_NAME"],
+    required_index_params=[("book_id", True)]
+)
+
 
 
 @app.get("/", tags=["root"])
@@ -46,7 +71,7 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
     :rtype: Token pydantic model
     """
     # attempt to authenticate user
-    user = authenticate_user(db=default_users_db, username=form_data.username, password=form_data.password)
+    user = authenticate_user(mongo_adapter=ma_user_collection, username=form_data.username, password=form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -109,22 +134,10 @@ async def create_user(
         email=new_user.email
     )
     # add new user to the database
-    
-    default_users_db[new_user_in_db.username] = new_user_in_db.dict()
-    # fixme is it needed to create new JWT token when creating new user? We already create JWT token in another route
-    
-    # define JWT token expiry time
-    # access_token_expires = timedelta(minutes=int(config["ACCESS_TOKEN_EXPIRE_MINUTES"]))
-    # create JWT access token fot the user
-    # key 'sub' with the token subject is added as per JWT specs
-    # access_token_data = create_access_token(
-    #     data={"sub": new_user_in_db.username},  
-    #     expires_delta=access_token_expires
-    #     )
-    # return JSONResponse(
-    #     content=access_token_data,
-    #     status_code=status.HTTP_200_OK
-    # )
+    upserted_id = ma_user_collection.silent_replace_db_entry(
+        index_name="username", data=new_user_in_db.dict()
+    )
+    # todo add logger message with upserted_id information
     return Message(message=f"Successfully created new user {new_user.username} and added to DB!")
 
 
@@ -160,14 +173,19 @@ def read_book(
     print(f"Detected incoming GET request from the client with IP {client_host} ...")
 
     # todo add authorization via JWT token
-
-    if book_id not in default_book_shelf.keys():
+    extracted_data = ma_books_collection.extract_db_entry(
+        index_name="book_id",
+        entry_id=book_id
+    )
+    if extracted_data:
+        returnable_book_data = Book(**extracted_data)
+        return returnable_book_data
+    else:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"The book with ID {book_id} was not found in the book shelf!"
         )
-    return default_book_shelf[book_id]
-
+    
 
 @app.get(
     "/books",
@@ -194,6 +212,7 @@ def show_books(
     :return: list of books currently available on the book shelf, limited by given number (if applicable)
     :rtype: List[Book]
     """
+    # TODO implement working with MongoDB
     return list(default_book_shelf.values())[: limit]
 
 
@@ -237,6 +256,8 @@ def add_book(
     author = incoming_book_data.get("author")
     description = incoming_book_data.get("description")
 
+    # todo add working with MongoDB
+    # (make the entry unique, else raise exception (upsert=False))
     if book_name in [book.book_name for book in default_book_shelf.values()]:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -292,6 +313,8 @@ def delete_book(
     print(f"Detected incoming GET request from the client with IP {client_host} ...")
 
     # todo add authorization via JWT token            
+
+    # todo add working with MongoDB
 
     if book_name not in [book.book_name for book in default_book_shelf.values()]:
         raise HTTPException(
