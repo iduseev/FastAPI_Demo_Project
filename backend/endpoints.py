@@ -13,7 +13,7 @@ from .database import MongoAdapter
 from .security import create_access_token, get_password_hash
 from .models import IncomingBookData, Book, Message, Error, User, Token, UserInDB
 from .authentication import oauth2_scheme, get_current_active_user, authenticate_user
-from .mock_data import default_book_shelf, default_book, default_users_db, default_user
+from .mock_data import default_book_shelf, default_book, default_user
 
 
 # extract environmental variables from .env file

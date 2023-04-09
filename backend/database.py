@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field
 class AuthCredentials(BaseModel):
     username: str = Field(..., example="username")
     password: str = Field(..., example="password")
-    auth_source: str = Field(..., example="db_name")
-    auth_mechanism: str = Field(..., example="DEFAULT")
+    authSource: str = Field(..., example="db_name")
+    authMechanism: str = Field(..., example="DEFAULT")
 
 
 class MongoAdapter:
@@ -18,7 +18,7 @@ class MongoAdapter:
     def __init__(
             self,
             host: AnyStr,
-            port: AnyStr,
+            port: int,
             db_name: AnyStr,
             collection_name: AnyStr,
             requires_auth: Optional[bool] = True,
@@ -31,22 +31,29 @@ class MongoAdapter:
             logger: Optional[Any] = None
     ):
         self.host: AnyStr = host
-        self.port: AnyStr = port,
-        self.db_name: AnyStr = db_name,
-        self.collection_name: AnyStr = collection_name,
+        self.port: int = port,
+        if not isinstance(port, int): self.port = int(port)
+
+        self.db_name: AnyStr = db_name
+        self.collection_name: AnyStr = collection_name
         self.requires_auth: bool = requires_auth
+        self.recreate_indexes: bool = recreate_indexes
         self.username: AnyStr = username
         self.password: AnyStr = password
+
         self.auth_source: AnyStr = self.db_name
-        self.client: pymongo.MongoClient
         if auth_source: self.auth_source = auth_source
         self.auth_mechanism = auth_mechanism
-        self.recreate_indexes: bool = recreate_indexes
-        self.logger: Any = logger
-        self.required_index_params: List[Tuple[str, bool]] = [("book_id", True)]
 
+        self.client: pymongo.MongoClient
+        self.init_mongo_client()
+        self.db = self.client[self.db_name]
+        self.collection = self.db[self.collection_name]
+        self.logger: Optional[Any] = logger
+
+        self.required_index_params: List[Tuple[str, bool]] = [("book_id", True)]
         if required_index_params: self.required_index_params = required_index_params
-        
+
         if self.recreate_indexes: self.recreate_required_indexes()
 
 
@@ -75,11 +82,12 @@ class MongoAdapter:
         """_summary_
         """
         if self.requires_auth:
+            print(f"self.collection_name: {self.collection_name}")
             auth_credentials = AuthCredentials(
                 username=self.username,
                 password=self.password,
-                auth_source=self.auth_source,
-                auth_mechanism=self.auth_mechanism
+                authSource=self.auth_source,
+                authMechanism=self.auth_mechanism
             )
             self.client = pymongo.MongoClient(
                 host=self.host,
