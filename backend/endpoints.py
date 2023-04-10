@@ -7,9 +7,9 @@ from typing import Union, List, Dict, Annotated, NoReturn
 from dotenv import dotenv_values
 from fastapi import FastAPI, Path, Body, Query, HTTPException, status, Request, Depends
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi.responses import JSONResponse
 
 from .database import MongoAdapter
+from utils.logger_setup import logger_setup
 from .security import create_access_token, get_password_hash
 from .models import IncomingBookData, Book, Message, Error, User, Token, UserInDB
 from .authentication import oauth2_scheme, get_current_active_user, authenticate_user
@@ -21,6 +21,9 @@ config = dotenv_values(".env")
 
 # initialize FastAPI application instance
 app = FastAPI()
+
+# init logger instance
+logger = logger_setup()
 
 # init MongoAdapter class instances to work with different collections in DB
 ma_user_collection = MongoAdapter(
@@ -46,9 +49,14 @@ ma_books_collection = MongoAdapter(
 )
 
 
-
 @app.get("/", tags=["root"])
 async def read_root() -> Dict:
+    """
+    Returns a dict with brief information on REST API service to check functionality
+
+    :return: short description
+    :rtype: Dict
+    """
     return {
         "message": "Hello, welcome to the Demo Library API service built using amazing FastAPI framework!",
     }
@@ -60,22 +68,26 @@ async def read_root() -> Dict:
     response_model=Token, 
     tags=["user"]
 )
-async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
+async def login_for_access_token(request: Request, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
     """
     Authenticates the user and creates JWT access token for him  
 
+    :param request: request object
+    :type request: Request
     :param form_data: data from the authentication form
     :type form_data: Annotated[OAuth2PasswordRequestForm, Depends
     :raises HTTPException: exception with status_code HTTP_401_UNAUTHORIZED in case the system was not able to authenticate the user 
     :return: JWT access token in dict format with indicated token type 
     :rtype: Token pydantic model
     """
+    client_host = request.client.host
+    logger.debug(f"Detected incoming POST request to /token endpoint from the client with IP {client_host} ...")
     # attempt to authenticate user
     user = authenticate_user(mongo_adapter=ma_user_collection, username=form_data.username, password=form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Incorrect username or password",
+            detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     # define JWT token expiry time
@@ -86,8 +98,8 @@ async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm,
         data={"sub": user.username},  
         expires_delta=access_token_expires
         )
+    logger.debug("Successfully created new access token!")
     return Token(**access_token_data)
-
 
 
 @app.get("/user/me", tags=["user"])
@@ -112,17 +124,22 @@ async def read_user_me(current_user: Annotated[User, Depends(get_current_active_
     tags=["user"]
 )
 async def create_user(
-    new_user: User = Body(..., title="Required new user information", example=default_user)
-    ) -> Message:
+    request: Request,
+    new_user: User = Body(..., title="Required new user information", example=default_user),
+) -> Message:
     """
     Creates a new user with passed username and password. Adds new user entry in the DB, preserving only
     hashed password value
 
+    :param request: request object
+    :type request: Request
     :param new_user: new user data
     :type new_user: User pydantic model
     :return: Message about successful new user creation 
     :rtype: Message
     """
+    client_host = request.client.host
+    logger.debug(f"Detected incoming POST request to /user/signup endpoint from the client with IP {client_host} ...")
     # get hash for plain password of the new user
     hashed_password = get_password_hash(plain_password=new_user.password)
     # create UserInDB user model because it should not contain plain password in attribute
@@ -137,7 +154,7 @@ async def create_user(
     upserted_id = ma_user_collection.silent_replace_db_entry(
         index_name="username", data=new_user_in_db.dict()
     )
-    # todo add logger message with upserted_id information
+    logger.debug(f"Inserted information about user in DB! upserted_id: {upserted_id}")
     return Message(message=f"Successfully created new user {new_user.username} and added to DB!")
 
 
@@ -170,7 +187,7 @@ def read_book(
     :rtype: Book
     """
     client_host = request.client.host
-    print(f"Detected incoming GET request from the client with IP {client_host} ...")
+    logger.debug(f"Detected incoming GET request to /books/<book_id> endpoint from the client with IP {client_host} ...")
 
     # todo add authorization via JWT token
     extracted_data = ma_books_collection.extract_db_entry(
@@ -178,6 +195,7 @@ def read_book(
         entry_id=book_id
     )
     if extracted_data:
+        logger.debug(f"Found data of requested book with ID {book_id}!")
         returnable_book_data = Book(**extracted_data)
         return returnable_book_data
     else:
@@ -185,7 +203,7 @@ def read_book(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"The book with ID {book_id} was not found in the book shelf!"
         )
-    
+
 
 @app.get(
     "/books",
@@ -213,6 +231,8 @@ def show_books(
     :rtype: List[Book]
     """
     # TODO implement working with MongoDB
+    client_host = request.client.host
+    logger.debug(f"Detected incoming GET request to /books endpoint from the client with IP {client_host} ...")
     return list(default_book_shelf.values())[: limit]
 
 
@@ -246,12 +266,11 @@ def add_book(
     :rtype: Union[Message, NoReturn]
     """
     client_host = request.client.host
-    print(f"Detected incoming GET request from the client with IP {client_host} ...")
+    logger.debug(f"Detected incoming POST request to /books/add_book endpoint from the client with IP {client_host} ...")
 
     # todo add authorization via JWT token
 
     incoming_book_data = incoming_book.dict()
-
     book_name = incoming_book_data.get("book_name")
     author = incoming_book_data.get("author")
     description = incoming_book_data.get("description")
@@ -259,12 +278,13 @@ def add_book(
     # todo add working with MongoDB
     # (make the entry unique, else raise exception (upsert=False))
     if book_name in [book.book_name for book in default_book_shelf.values()]:
+        logger.warning("The aforementioned book already exists in the book shelf!")
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"The aforementioned book already exists in the book shelf!"
+            detail="The aforementioned book already exists in the book shelf!"
         )
     book_id = uuid4().hex
-    print(f"Assigned new book ID to the added book: {book_id}")
+    logger.debug(f"Assigned new book ID to the added book: {book_id}")
     new_book = Book(
         book_name=book_name,
         book_id=book_id,
@@ -272,9 +292,9 @@ def add_book(
         author=author if author else None,
         description=description if description else None
     )
-    print(f"Created new book object! Book data:\n{new_book.dict()}")
+    logger.debug(f"Created new book object! Book data:\n{new_book.dict()}")
     default_book_shelf[book_id] = new_book
-    print(f"Assigned new book {book_name} to the book shelf! ")
+    logger.debug(f"Assigned new book {book_name} to the book shelf! ")
     return Message(
         message=f"Book {book_name} was successfully added to the book shelf! Book ID assigned: {book_id}"
     )
@@ -310,20 +330,16 @@ def delete_book(
     :rtype: Union[NoReturn, Message]
     """
     client_host = request.client.host
-    print(f"Detected incoming GET request from the client with IP {client_host} ...")
-
+    logger.debug(f"Detected incoming DELETE request to /books/delete endpoint from the client with IP {client_host} ...")
     # todo add authorization via JWT token            
-
     # todo add working with MongoDB
-
     if book_name not in [book.book_name for book in default_book_shelf.values()]:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"The book {book_name} was not found in the book shelf!"
         )
-
     for book_id, book in default_book_shelf.items():
         if book_name == book.book_name:
-            print(f"Book {book_name} with assigned book ID {book_id} is found on the book shelf and is to be deleted ...")
+            logger.debug(f"Book {book_name} with assigned book ID {book_id} is found on the book shelf and is to be deleted ...")
             del default_book_shelf[book_id]
             return Message(message=f"Book {book_name} was successfully deleted from the book shelf!")

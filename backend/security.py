@@ -70,7 +70,7 @@ def create_access_token(data: Dict, expires_delta: Optional[timedelta] = None) -
     if not expires_delta:
         expires_delta = timedelta(minutes=180)
     expires_at = utcnow + expires_delta
-    
+
     to_encode.update({"exp": expires_at})
     # encode the given contents to get a JWT token
     encoded_jwt = jwt.encode(

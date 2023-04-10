@@ -2,7 +2,7 @@
 
 This is a demo project built with FastAPI, a modern, fast (high-performance), web framework for building APIs with Python 3.6+ based on standard Python type hints. 
 
-The project includes several endpoints for performing CRUD operations on a fake database.
+The project includes several endpoints for performing CRUD operations on a MongoDB cluster.
 
 The project imitates a digital book shelf with the books already in. You can add or delete books from the shelf or request to show all the books available at the moment.
 

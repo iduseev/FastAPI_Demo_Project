@@ -7,6 +7,11 @@ from pydantic import BaseModel, Field
 
 
 class AuthCredentials(BaseModel):
+    """
+    Custom validation class used to accept and validate credentials
+    for authorization to protected MongoDB cluster
+
+    """
     username: str = Field(..., example="username")
     password: str = Field(..., example="password")
     authSource: str = Field(..., example="db_name")
@@ -56,7 +61,6 @@ class MongoAdapter:
 
         if self.recreate_indexes: self.recreate_required_indexes()
 
-
     def __str__(self):
         return """
             The MongoAdapter class is used to control and support the work with MongoDB collections executed for 
@@ -69,7 +73,7 @@ class MongoAdapter:
             Allows turning off automatic indexes recreation by manual passing False to the bool flag 
             'recreate_indexes' (True by default).
         """
-    
+
     def __repr__(self):
         return f"""
             {self.__class__.__name__}({self.host}, {self.port}, {self.db_name}, {self.collection_name}, 
@@ -77,7 +81,7 @@ class MongoAdapter:
             {self.password if self.password else ''}, {self.auth_source if self.auth_source else ''}, 
             {self.auth_mechanism if self.auth_mechanism else ''}, {self.logger if self.logger else ''})
         """
-    
+
     def init_mongo_client(self):
         """_summary_
         """
@@ -121,15 +125,15 @@ class MongoAdapter:
         # check that self.required_index_params value is valid, else return None
         if not isinstance(self.required_index_params, list):
             raise ValueError(
-                f"Invalid value was passed as <required_index_params> or the format is not compatible with the requirements: "
-                f"List[Tuple[str, bool]]"
+                "Invalid value was passed as <required_index_params> or the format is not compatible with the requirements: "
+                "List[Tuple[str, bool]]"
             )
         # iterate over List[Tuple[str, bool]]
         for required_index_data_piece in self.required_index_params:
             if not isinstance(required_index_data_piece, tuple) or len(required_index_data_piece) != 2:
                 raise ValueError(
-                    f"One of the elements of <required_index_params> has invalid value or the format is not compatible with the requirements: "
-                    f"Tuple[str, bool], or there were more than 2 elements passed within the tuple"
+                    "One of the elements of <required_index_params> has invalid value or the format is not compatible with the requirements: "
+                    "Tuple[str, bool], or there were more than 2 elements passed within the tuple"
                 )
             required_index_name, uniqueness_bool = required_index_data_piece
             # check if need to restore absent index name

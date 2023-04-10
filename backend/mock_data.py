@@ -2,6 +2,7 @@
 
 from .models import Book
 
+
 default_book = {
     "book_name": "Shantaram",
     "author": "Gregory David Roberts",
