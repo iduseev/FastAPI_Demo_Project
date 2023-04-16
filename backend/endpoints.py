@@ -52,23 +52,28 @@ ma_books_collection = MongoAdapter(
 @app.get("/", tags=["root"])
 async def read_root() -> Dict:
     """
-    Returns a dict with brief information on REST API service to check functionality
+    Returns a dict with brief information on REST API
+    service to check functionality
 
     :return: short description
     :rtype: Dict
     """
     return {
-        "message": "Hello, welcome to the Demo Library API service built using amazing FastAPI framework!",
+        "message": "Hello, welcome to the Demo Library API service "
+        "built using amazing FastAPI framework!",
     }
 
 
 @app.post(
-    "/token", 
+    "/token",
     summary="Login to get JWT access token",
     response_model=Token, 
     tags=["user"]
 )
-async def login_for_access_token(request: Request, form_data: Annotated[OAuth2PasswordRequestForm, Depends()]) -> Token:
+async def login_for_access_token(
+    request: Request,
+    form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
+) -> Token:
     """
     Authenticates the user and creates JWT access token for him  
 
@@ -81,9 +86,16 @@ async def login_for_access_token(request: Request, form_data: Annotated[OAuth2Pa
     :rtype: Token pydantic model
     """
     client_host = request.client.host
-    logger.debug(f"Detected incoming POST request to /token endpoint from the client with IP {client_host} ...")
+    logger.debug(
+        "Detected incoming POST request to /token endpoint from the client "
+        "with IP %s ...", client_host
+    )
     # attempt to authenticate user
-    user = authenticate_user(mongo_adapter=ma_user_collection, username=form_data.username, password=form_data.password)
+    user = authenticate_user(
+        mongo_adapter=ma_user_collection, 
+        username=form_data.username, 
+        password=form_data.password
+    )
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -103,7 +115,9 @@ async def login_for_access_token(request: Request, form_data: Annotated[OAuth2Pa
 
 
 @app.get("/user/me", tags=["user"])
-async def read_user_me(current_user: Annotated[User, Depends(get_current_active_user)]) -> UserInDB:
+async def read_user_me(
+        current_user: Annotated[User, Depends(get_current_active_user)]
+        ) -> UserInDB:
     """
     Returns info about currently logged user
 
@@ -139,7 +153,10 @@ async def create_user(
     :rtype: Message
     """
     client_host = request.client.host
-    logger.debug(f"Detected incoming POST request to /user/signup endpoint from the client with IP {client_host} ...")
+    logger.debug(
+        "Detected incoming POST request to /user/signup endpoint from the client with IP %s ...",
+        client_host
+        )
     # get hash for plain password of the new user
     hashed_password = get_password_hash(plain_password=new_user.password)
     # create UserInDB user model because it should not contain plain password in attribute
@@ -154,8 +171,11 @@ async def create_user(
     upserted_id = ma_user_collection.silent_replace_db_entry(
         index_name="username", data=new_user_in_db.dict()
     )
-    logger.debug(f"Inserted information about user in DB! upserted_id: {upserted_id}")
-    return Message(message=f"Successfully created new user {new_user.username} and added to DB!")
+    logger.debug("Inserted information about user in DB! upserted_id: %s", upserted_id)
+    return Message(
+        message=f"Successfully created new user {new_user.username}"
+                "and added to DB!"
+        )
 
 
 @app.get(
