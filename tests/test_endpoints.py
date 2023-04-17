@@ -199,7 +199,7 @@ class TestEndpointsBooks:
 
     @pytest.mark.endpoints_book
     @pytest.mark.parametrize("deletable_book_name, expected", [
-    ("Shantaram", True)
+        ("Shantaram", True)
     ])
     def test_delete_book(
         self, 
@@ -217,7 +217,7 @@ class TestEndpointsBooks:
         :param expected: _description_
         :type expected: bool
         """
-        jwt = _login_for_access_token.get("access_token")
+        jwt = _login_for_access_token.get("access_toke")
 
         headers = {
             "content-type": "application/json",

@@ -8,7 +8,7 @@ from datetime import datetime
 from logging.handlers import TimedRotatingFileHandler
 
 
-PROJECT_FOLDER_PATH = Path(__file__).parents[1]  # fixme ensure that the correct folder defined
+PROJECT_FOLDER_PATH = Path(__file__).parents[1]
 
 
 def logger_setup() -> logging.getLogger():
@@ -19,7 +19,9 @@ def logger_setup() -> logging.getLogger():
     log_folder = Path(PROJECT_FOLDER_PATH, "logs").resolve()
     print(f"log_folder initialized as per follows: {log_folder}")
 
-    formatter = logging.Formatter("%(asctime)-15s\t%(levelname)s\t%(module)s: %(message)s")
+    formatter = logging.Formatter(
+        "%(asctime)-15s\t%(levelname)s\t%(module)s: %(message)s"
+    )
     root = logging.getLogger()
 
     console_handler = logging.StreamHandler(stdout)
@@ -27,7 +29,9 @@ def logger_setup() -> logging.getLogger():
     console_handler.setFormatter(formatter)
 
     rotating_handler = TimedRotatingFileHandler(
-        filename=log_folder.joinpath(f"FAastAPI_Demo_Project_{datetime.now().strftime('%Y-%m-%d')}.log"),
+        filename=log_folder.joinpath(
+            f"FastAPI_Demo_Project_{datetime.now().strftime('%Y-%m-%d')}.log"
+        ),
         encoding="utf-8",
         when="W6",  # W0 - MONDAY
         interval=1,
