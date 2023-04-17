@@ -47,14 +47,14 @@ class TestEndpointsUser:
         """
         Prepare test environment
         """
-        pass
+        raise NotImplementedError
 
     @pytest.mark.endpoints_user
     def test_read_user_me(self):
         """
         Testing functionality of read_user_me() function
         """
-        pass
+        raise NotImplementedError
 
     @pytest.mark.endpoints_user 
     def test_create_user(self):
@@ -84,14 +84,14 @@ class TestEndpointsUser:
         Checks functionality of function login_for_access_token()
         """
         # todo add test cases
-        pass
+        raise NotImplementedError
 
     @classmethod
     def teardown_class(cls):
         """
         Tidy up test environment
         """
-        pass
+        raise NotImplementedError
 
 
 @pytest.mark.endpoints_books
@@ -105,7 +105,7 @@ class TestEndpointsBooks:
         """
         Prepare test environment
         """
-        pass
+        raise NotImplementedError
 
     @pytest.mark.endpoints_root
     def test_read_root(self):
@@ -235,4 +235,4 @@ class TestEndpointsBooks:
         """
         Tidy up test environment
         """
-        pass
+        raise NotImplementedError
