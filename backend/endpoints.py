@@ -8,12 +8,12 @@ from dotenv import dotenv_values
 from fastapi import FastAPI, Path, Body, Query, HTTPException, status, Request, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
-from .database import MongoAdapter
 from utils.logger_setup import logger_setup
+from .database import MongoAdapter
 from .security import create_access_token, get_password_hash
+from .mock_data import default_book_shelf, default_book, default_user
 from .models import IncomingBookData, Book, Message, Error, User, Token, UserInDB
 from .authentication import oauth2_scheme, get_current_active_user, authenticate_user
-from .mock_data import default_book_shelf, default_book, default_user
 
 
 # extract environmental variables from .env file
@@ -67,7 +67,7 @@ async def read_root() -> Dict:
 @app.post(
     "/token",
     summary="Login to get JWT access token",
-    response_model=Token, 
+    response_model=Token,
     tags=["user"]
 )
 async def login_for_access_token(
@@ -134,8 +134,9 @@ async def read_user_me(
 @ app.post(
     "/user/signup", 
     summary="Create new user",
-    response_model=Message, 
-    tags=["user"]
+    response_model=Message,
+    tags=["user"],
+    dependencies=[Depends(oauth2_scheme)]
 )
 async def create_user(
     request: Request,
@@ -186,28 +187,31 @@ async def create_user(
     responses={
         status.HTTP_404_NOT_FOUND: {"model": Error}
     },
-    tags=["books"]
+    tags=["books"],
+    dependencies=[Depends(oauth2_scheme)]
 )
 def read_book(
         request: Request, 
-        token: Annotated[str, Depends(oauth2_scheme)],
         book_id: str = Path(..., title="Required book ID", example="936d4b41ec874007af150bbac8e714c3")
-    ) -> Book:
+) -> Book:
     """
     Extract book data from the book shelf by book ID 
 
     :param request: request object
     :type request: Request
-    :param token: JWT access token assigned to the user
-    :type token: Annotated[str, Depends(oauth2_scheme)]
     :param book_id: Path parameter, book ID gotten from the route
     :type book_id: str
-    :raises HTTPException: exception  with status_code HTTP_404_NOT_FOUND raised in case the given book_id is not found on the book shelf 
+    :raises HTTPException: exception  with status_code HTTP_404_NOT_FOUND
+                            raised in case the given book_id is not found
+                            on the book shelf 
     :return: pydantic model of the requested book
     :rtype: Book
     """
     client_host = request.client.host
-    logger.debug(f"Detected incoming GET request to /books/<book_id> endpoint from the client with IP {client_host} ...")
+    logger.debug(
+        "Detected incoming GET request to /books/<book_id> endpoint from"
+        "the client with IP %s ...", client_host
+    )
 
     # todo add authorization via JWT token
     extracted_data = ma_books_collection.extract_db_entry(
@@ -215,14 +219,13 @@ def read_book(
         entry_id=book_id
     )
     if extracted_data:
-        logger.debug(f"Found data of requested book with ID {book_id}!")
+        logger.debug("Found data of requested book with ID %s!", book_id)
         returnable_book_data = Book(**extracted_data)
         return returnable_book_data
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"The book with ID {book_id} was not found in the book shelf!"
-        )
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail=f"The book with ID {book_id} was not found in the book shelf!"
+    )
 
 
 @app.get(
@@ -231,20 +234,18 @@ def read_book(
     status_code=status.HTTP_200_OK,
     response_model=List[Book],
     responses={status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": Error}},
-    tags=["books"]
+    tags=["books"],
+    dependencies=[Depends(oauth2_scheme)]
     )
 def show_books(
-        request: Request,
-        token: Annotated[str, Depends(oauth2_scheme)],
-        limit: int = Query(default=10, example=10)
-    ) -> List[Book]:
+    request: Request,
+    limit: int = Query(default=10, example=10)
+) -> List[Book]:
     """
     Shows all the books available on the book shelf, allows to limit the number of showed books 
 
     :param request: request object
     :type request: Request
-    :param token: JWT access token assigned to the user
-    :type token: Annotated[str, Depends(oauth2_scheme)]
     :param limit: query parameter, used to limit the returning book batch, defaults to 10
     :type limit: int, optional
     :return: list of books currently available on the book shelf, limited by given number (if applicable)
@@ -252,7 +253,10 @@ def show_books(
     """
     # TODO implement working with MongoDB
     client_host = request.client.host
-    logger.debug(f"Detected incoming GET request to /books endpoint from the client with IP {client_host} ...")
+    logger.debug(
+        "Detected incoming GET request to /books endpoint from the"
+        "client with IP %s ...", client_host
+    )
     return list(default_book_shelf.values())[: limit]
 
 
@@ -265,15 +269,15 @@ def show_books(
         status.HTTP_409_CONFLICT: {"model": Error},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": Error}
     },
-    tags=["books"]
+    tags=["books"],
+    dependencies=[Depends(oauth2_scheme)]
 )
 def add_book(
     request: Request,
-    token: Annotated[str, Depends(oauth2_scheme)],
     incoming_book: IncomingBookData = Body(..., title="Required book data to be added", example=default_book)
-    ) -> Union[Message, NoReturn]:
+) -> Union[Message, NoReturn]:
     """
-    Accepts book data and adds a new Book pydantic model object to the book shelf in DB 
+    Accepts book data and adds a new Book pydantic model object to the book shelf in DB
 
     :param request: request object
     :type request: Request
@@ -286,10 +290,11 @@ def add_book(
     :rtype: Union[Message, NoReturn]
     """
     client_host = request.client.host
-    logger.debug(f"Detected incoming POST request to /books/add_book endpoint from the client with IP {client_host} ...")
-
+    logger.debug(
+        "Detected incoming POST request to /books/add_book endpoint"
+        "from the client with IP %s ...", client_host
+        )
     # todo add authorization via JWT token
-
     incoming_book_data = incoming_book.dict()
     book_name = incoming_book_data.get("book_name")
     author = incoming_book_data.get("author")
@@ -304,7 +309,9 @@ def add_book(
             detail="The aforementioned book already exists in the book shelf!"
         )
     book_id = uuid4().hex
-    logger.debug(f"Assigned new book ID to the added book: {book_id}")
+    logger.debug(
+        "Assigned new book ID to the added book: %s", book_id
+    )
     new_book = Book(
         book_name=book_name,
         book_id=book_id,
@@ -312,9 +319,13 @@ def add_book(
         author=author if author else None,
         description=description if description else None
     )
-    logger.debug(f"Created new book object! Book data:\n{new_book.dict()}")
+    logger.debug(
+        "Created new book object! Book data:\n%s", new_book.dict()
+    )
     default_book_shelf[book_id] = new_book
-    logger.debug(f"Assigned new book {book_name} to the book shelf! ")
+    logger.debug(
+        "Assigned new book %s to the book shelf!", book_name
+    )
     return Message(
         message=f"Book {book_name} was successfully added to the book shelf! Book ID assigned: {book_id}"
     )
@@ -329,11 +340,11 @@ def add_book(
         status.HTTP_404_NOT_FOUND: {"model": Error},
         status.HTTP_500_INTERNAL_SERVER_ERROR: {"model": Error}
     },
-    tags=["books"]
+    tags=["books"],
+    dependencies=[Depends(oauth2_scheme)]
 )
 def delete_book(
     request: Request, 
-    token: Annotated[str, Depends(oauth2_scheme)],
     book_name: str = Path(..., title="Required book name to be deleted", example="Shantaram")
 ) -> Union[Message, NoReturn]:
     """
@@ -350,7 +361,10 @@ def delete_book(
     :rtype: Union[NoReturn, Message]
     """
     client_host = request.client.host
-    logger.debug(f"Detected incoming DELETE request to /books/delete endpoint from the client with IP {client_host} ...")
+    logger.debug(
+        "Detected incoming DELETE request to /books/delete endpoint"
+        "from the client with IP %s ...", client_host
+        )
     # todo add authorization via JWT token            
     # todo add working with MongoDB
     if book_name not in [book.book_name for book in default_book_shelf.values()]:
@@ -360,6 +374,11 @@ def delete_book(
         )
     for book_id, book in default_book_shelf.items():
         if book_name == book.book_name:
-            logger.debug(f"Book {book_name} with assigned book ID {book_id} is found on the book shelf and is to be deleted ...")
+            logger.debug(
+                "Book %s with assigned book ID %x is found on the book"
+                "shelf and is to be deleted ...", book_name, book_id
+            )
             del default_book_shelf[book_id]
-            return Message(message=f"Book {book_name} was successfully deleted from the book shelf!")
+            return Message(
+                message=f"Book {book_name} was successfully deleted from the book shelf!"
+            )
