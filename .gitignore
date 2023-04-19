@@ -1,4 +1,5 @@
 .DS_Store
+git_commit_messages.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
