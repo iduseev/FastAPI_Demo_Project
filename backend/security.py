@@ -1,5 +1,8 @@
 # backend/security.py
 
+import os
+import binascii
+
 from hashlib import sha1
 from datetime import datetime, timedelta, timezone
 from typing import AnyStr, Dict, NoReturn, Union, Optional
@@ -11,6 +14,16 @@ from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 config = dotenv_values(".env")
+
+
+def generate_secret_key() -> bytes:
+    """
+    Generates a random byte object of 64 symbols length to 
+    be used as SECRET_KEY while encrypting/decrypting JWT token
+
+    :return bytes: random byte object of 64 symbols length
+    """
+    return binascii.hexlify(os.urandom(32))
 
 
 def hash_password_old(password: AnyStr) -> AnyStr:

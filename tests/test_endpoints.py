@@ -1,35 +1,27 @@
 # tests/test_endpoints.py
 
-import os
-import sys
-
 from pathlib import Path
 from typing import Dict, AnyStr
 
 import pytest
-import requests
 
 from dotenv import dotenv_values
 from fastapi import status
 from fastapi.testclient import TestClient
 
-
-PROJECT_FOLDER_PATH = Path(__file__).parents[1]
-BACKEND_FOLDER_PATH = Path(PROJECT_FOLDER_PATH, "backend")
-sys.path.insert(0, os.path.abspath(os.path.join(str(BACKEND_FOLDER_PATH))))
-
 from backend.endpoints import app
+
+
+# extract environmental variables from .env file
+cwd = Path.cwd()
+DOTENV_ABS_LOC = str(Path(cwd, r".env").resolve())
+config = dotenv_values(DOTENV_ABS_LOC)
 
 
 """
 Run tests using the following command in terminal:
 python -m pytest -rA -v --tb=line test_endpoints.py --cov-report term-missing --cov=sources
 """
-
-# extract environmental variables from .env file
-cwd = Path.cwd()
-DOTENV_ABS_LOC = str(Path(cwd, r".env").resolve())
-config = dotenv_values(DOTENV_ABS_LOC)
 
 
 client = TestClient(app)
@@ -135,11 +127,12 @@ class TestEndpointsBooks:
         """
         Test case checks functionality of read_root() function
 
-        :param book_id: _description_
-        :type book_id: AnyStr
-        :param book_name: _description_
-        :type book_name: AnyStr
-        :param expected: _description_
+        :param book_id: book ID gotten from the route
+        :type book_id: str
+        :param book_name: book name gotten from the route
+        :type book_name: str
+        :param expected: `True` if extracted book_name matches with expected
+                         else `False`
         :type expected: bool
         """
         jwt = _login_for_access_token.get("access_token")
@@ -202,7 +195,7 @@ class TestEndpointsBooks:
         ("Shantaram", True)
     ])
     def test_delete_book(
-        self, 
+        self,
         _login_for_access_token: Dict[AnyStr, AnyStr],
         deletable_book_name: AnyStr,
         expected: bool
@@ -210,11 +203,9 @@ class TestEndpointsBooks:
         """
         Test case checks functionality of delete_book() function
 
-        :param _login_for_access_token: _description_
-        :type _login_for_access_token: Dict[AnyStr, AnyStr]
-        :param deletable_book_name: _description_
+        :param deletable_book_name: book name to be deleted (gotten from the route)
         :type deletable_book_name: AnyStr
-        :param expected: _description_
+        :param expected: True` if deleted book_name matches with expected
         :type expected: bool
         """
         jwt = _login_for_access_token.get("access_toke")
