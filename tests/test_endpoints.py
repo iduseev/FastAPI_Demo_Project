@@ -48,7 +48,7 @@ class TestEndpointsUser:
         """
         raise NotImplementedError
 
-    @pytest.mark.endpoints_user 
+    @pytest.mark.endpoints_user
     def test_create_user(self):
         """
         Checks functionality of function create_user()
@@ -120,7 +120,7 @@ class TestEndpointsBooks:
     def test_read_book(
         self,
         _login_for_access_token: Dict[AnyStr, AnyStr],
-        book_id: AnyStr, 
+        book_id: AnyStr,
         book_name: AnyStr,
         expected: bool
     ):
